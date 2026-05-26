@@ -156,6 +156,186 @@ Ou via script seed Node.js (que mapeia as colunas do CSV para o schema `Task`).
 
 ---
 
+## 🔧 Setup do back-end (cola pra Sprint 1)
+
+Material extra pra destravar a importação no MongoDB e dar o ponto de partida da arquitetura.
+
+### 1. Importar o dataset no MongoDB
+
+**Opção A — `mongoimport` (rápido, sem mapear schema)**
+
+```bash
+mongoimport --db taskinsight --collection tasks \
+            --type csv --headerline \
+            --file data/atividades.csv
+```
+
+Útil para inspecionar os dados rapidamente no MongoDB Compass. Cria a collection `tasks` com os nomes das colunas do CSV (`titulo`, `descricao`, `categoria`...) — **sem mapear para o schema da Mongoose**.
+
+**Opção B — Script Node + Mongoose (mapeia para o schema da `Task`)**
+
+Esta é a forma recomendada porque alinha os dados ao schema que vocês vão definir na model. Crie `backend/scripts/seed.js`:
+
+```js
+require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const Task = require('../models/Task');
+const User = require('../models/User');
+
+// Parser CSV que respeita aspas (campos com vírgula embutida)
+function parseLinha(linha) {
+    const campos = [];
+    let atual = '';
+    let dentroAspas = false;
+    for (let i = 0; i < linha.length; i++) {
+        const c = linha[i];
+        if (c === '"' && linha[i + 1] === '"' && dentroAspas) {
+            atual += '"';
+            i++;
+        } else if (c === '"') {
+            dentroAspas = !dentroAspas;
+        } else if (c === ',' && !dentroAspas) {
+            campos.push(atual);
+            atual = '';
+        } else {
+            atual += c;
+        }
+    }
+    campos.push(atual);
+    return campos;
+}
+
+async function seed() {
+    await mongoose.connect(process.env.MONGO_URI);
+
+    // 1. Garante um usuário "dono" das tarefas
+    let demo = await User.findOne({ email: 'demo@inovapcd.telos' });
+    if (!demo) {
+        const hash = await bcrypt.hash('demo123', 10);
+        demo = await User.create({
+            name: 'Demo Inova.PCD',
+            email: 'demo@inovapcd.telos',
+            password: hash,
+        });
+    }
+
+    // 2. Lê CSV
+    const csvPath = path.join(__dirname, '../../data/atividades.csv');
+    const linhas = fs.readFileSync(csvPath, 'utf-8').trim().split('\n');
+    const cabecalho = parseLinha(linhas[0]);
+
+    // 3. Limpa tarefas anteriores deste usuário (idempotente — pode rodar várias vezes)
+    await Task.deleteMany({ user: demo._id });
+
+    // 4. Mapeia colunas do CSV para campos da Task
+    const tasks = linhas.slice(1).map(linha => {
+        const valores = parseLinha(linha);
+        const obj = Object.fromEntries(cabecalho.map((c, i) => [c, valores[i]]));
+        return {
+            user: demo._id,
+            title: obj.titulo,          // CSV: titulo      → Task: title
+            desc: obj.descricao,        // CSV: descricao   → Task: desc
+            status: obj.status,         // mesmo nome
+            prio: obj.prioridade,       // CSV: prioridade  → Task: prio
+            story: obj.categoria,       // CSV: categoria   → Task: story
+            created: new Date(obj.data_criacao),
+        };
+    });
+
+    await Task.insertMany(tasks);
+    console.log(`✅ ${tasks.length} tarefas inseridas`);
+    process.exit(0);
+}
+
+seed().catch(err => { console.error(err); process.exit(1); });
+```
+
+Rodar:
+
+```bash
+node backend/scripts/seed.js
+```
+
+**Mapeamento dos campos** (CSV do dataset ↔ schema da `Task`):
+
+| CSV (dataset) | Task (Mongoose) |
+|---|---|
+| `titulo` | `title` |
+| `descricao` | `desc` |
+| `status` | `status` |
+| `prioridade` | `prio` |
+| `categoria` | `story` |
+| `data_criacao` | `created` |
+
+---
+
+### 2. Estrutura de pastas recomendada (back-end)
+
+Convenção comum em projetos Node + Express + Mongoose. Cada arquivo tem **uma responsabilidade clara**:
+
+```
+backend/
+├── server.js                  # Entrypoint: cria o Express, conecta no Mongo, escuta a porta
+├── config/
+│   └── db.js                  # Função connectDB() — encapsula mongoose.connect()
+├── models/
+│   ├── User.js                # Schema do usuário (name, email, password)
+│   └── Task.js                # Schema da tarefa (title, desc, status, prio, story, user)
+├── routes/
+│   ├── authRoutes.js          # POST /register, POST /login (públicas)
+│   └── taskRoutes.js          # GET, POST, PUT, DELETE /tasks (protegidas por JWT)
+├── controllers/
+│   ├── authController.js      # Lógica de register e login (bcrypt + JWT)
+│   └── taskController.js      # Lógica do CRUD de tarefas
+├── middlewares/
+│   └── auth.js                # Valida o JWT do header e anexa req.user
+└── scripts/
+    └── seed.js                # Popula o banco com o dataset (snippet acima)
+```
+
+**Princípio**:
+- `routes/` só **define URLs** e aponta para o controller (zero lógica de negócio)
+- `controllers/` tem a **lógica de negócio** (regras, validações, chamadas ao banco)
+- `models/` define a **forma dos dados** (schema Mongoose)
+- `middlewares/` faz **validação ANTES da rota** (ex: checar JWT)
+- `config/` isola **configurações** (conexão DB, variáveis de ambiente)
+
+---
+
+### 3. Fluxo JWT em uma frase
+
+> **Usuário loga → backend valida senha → gera token → cliente guarda → manda token em toda request → middleware decodifica ANTES de chegar no controller.**
+
+Diagrama mental:
+
+```
+1) POST /login                            2) Toda request protegida
+   email + senha                             Header: x-auth-token: <jwt>
+        │                                            │
+        ▼                                            ▼
+   bcrypt.compare()                             middleware/auth.js
+        │                                            │
+        ▼                                            ▼
+   jwt.sign({user:{id}}, SECRET)                jwt.verify(token, SECRET)
+        │                                            │
+        ▼                                            ▼
+   Retorna { token }                            req.user = decoded.user
+                                                     │
+                                                     ▼
+                                               controller executa
+```
+
+**Pontos-chave**:
+- O token é **assinado** com `JWT_SECRET` (variável de ambiente) — qualquer alteração no token invalida a assinatura
+- O token **não é criptografado**, é apenas codificado em base64. **Nunca coloque senha no payload**
+- Padrão de payload: `{ user: { id: <ObjectId> } }`, expiração `1h`
+- Sem token ou token inválido → o middleware retorna `401` e o controller nem é chamado
+
+---
+
 ## 🎯 10 análises sugeridas
 
 ### Estatística descritiva (fácil)
