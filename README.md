@@ -226,14 +226,6 @@ sujo = sujo.drop_duplicates(subset=['titulo', 'responsavel', 'data_criacao'])
 
 ---
 
-## 🔬 Reprodutibilidade
-
-O dataset foi gerado com `random.seed(42)` (consistência) e `seed(43)` (versão suja/histórico). Geração determinística — mesmo seed gera o mesmo resultado.
-
-Script de geração disponível em `scripts/gerar_dataset.py`.
-
----
-
 ## ⚠️ Limitações e premissas
 
 - **Dataset sintético plausível**: tarefas fictícias baseadas em práticas reais de iniciativas de inclusão em empresas brasileiras de tecnologia. Não representam empresa específica.
