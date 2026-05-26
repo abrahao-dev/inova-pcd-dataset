@@ -14,7 +14,7 @@ Este dataset apoia o projeto final em 3 fases (uma por semana):
 |---|---|
 | **Semana 1** — Back-end | Popular MongoDB via script seed (~65 tarefas prontas) |
 | **Semana 2** — Front-end | Alimentar dashboard com dados reais (não lista vazia) |
-| **Semana 3** — Python | Entrada para análise, limpeza de dados e visualizações |
+| **Semana 3** — Python | Entrada para análise, métricas e visualizações |
 
 O schema foi desenhado para **bater diretamente** com a model `Task` esperada no back-end (Node.js + Mongoose):
 
@@ -35,8 +35,7 @@ O schema foi desenhado para **bater diretamente** com a model `Task` esperada no
 
 ```
 data/
-├── atividades.csv           65 linhas  | dataset principal (limpo)
-├── atividades_sujo.csv     100 linhas  | versão com 35 erros propositais
+├── atividades.csv           65 linhas  | dataset principal
 ├── responsaveis.csv          8 linhas  | pessoas (para JOIN)
 └── status_historico.csv    138 linhas  | transições de status no tempo
 ```
@@ -91,21 +90,6 @@ Informações complementares dos 8 colaboradores responsáveis. Coluna `nome` é
 | `anos_empresa` | Tempo de casa |
 | `formacao_acessibilidade` | `sim` / `nao` |
 
-### `atividades_sujo.csv` — Para exercício de limpeza de dados
-
-Mesma estrutura de `atividades.csv` (100 linhas), mas com **35 problemas propositais**:
-
-| Tipo | Qtd | Exemplo |
-|---|---|---|
-| Duplicatas exatas | 5 | Mesma tarefa com `id` diferente |
-| Datas inválidas | 5 | `2026-02-30`, `31/04/2026`, formato textual |
-| Valores faltantes | 5 | `titulo` ou `responsavel` em branco |
-| Enums com ruído | 5 | `' concluida'`, `'Pendente'`, `'ANDAMENTO'` |
-| Inconsistências lógicas | 5 | `status=concluida` sem `data_conclusao` |
-| Outliers numéricos | 10 | `horas_gastas=-5`, `=9999`, `estimativa_horas=0` |
-
-Use para exercitar `drop_duplicates`, `str.strip()`, `pd.to_datetime(errors='coerce')`, validação cross-field.
-
 ### `status_historico.csv` — Linha do tempo das tarefas
 
 Log de cada transição de status (`pendente → andamento → concluida`) com timestamp. Útil para análise de séries temporais.
@@ -154,18 +138,15 @@ const texto = await resp.text();
 
 ### Importar no MongoDB
 
-```bash
-# Usar o seed script do projeto referência (backend/scripts/seed.js)
-node backend/scripts/seed.js
-```
-
-Ou direto com `mongoimport`:
+Via `mongoimport`:
 
 ```bash
 mongoimport --db taskinsight --collection atividades \
             --type csv --headerline \
             --file data/atividades.csv
 ```
+
+Ou via script seed Node.js (que mapeia as colunas do CSV para o schema `Task`).
 
 ### Abrir em Excel / Numbers / Google Sheets
 
@@ -175,7 +156,7 @@ mongoimport --db taskinsight --collection atividades \
 
 ---
 
-## 🎯 12 análises sugeridas
+## 🎯 10 análises sugeridas
 
 ### Estatística descritiva (fácil)
 1. Distribuição por status
@@ -191,13 +172,9 @@ mongoimport --db taskinsight --collection atividades \
 7. Departamentos que mais entregam
 8. Formação em acessibilidade × velocidade de entrega
 
-### Limpeza de dados (médio — usa `atividades_sujo.csv`)
-9. Detectar e remover duplicatas
-10. Normalizar enums (`str.strip()`, `str.lower()`)
-11. Validar datas (`pd.to_datetime(errors='coerce')`)
-
 ### Séries temporais (avançado — usa `status_historico.csv`)
-12. Lead time médio mensal
+9. Lead time médio mensal
+10. Tarefas "presas" em andamento por muito tempo
 
 ### Exemplos rápidos
 
@@ -216,12 +193,6 @@ c['data_criacao'] = pd.to_datetime(c['data_criacao'])
 c['data_conclusao'] = pd.to_datetime(c['data_conclusao'])
 c['lead_time'] = (c['data_conclusao'] - c['data_criacao']).dt.days
 c.groupby('formacao_acessibilidade')['lead_time'].mean()
-
-# Limpeza
-sujo = pd.read_csv('data/atividades_sujo.csv')
-sujo['status'] = sujo['status'].str.strip().str.lower()
-sujo = sujo[sujo['status'].isin(['pendente', 'andamento', 'concluida'])]
-sujo = sujo.drop_duplicates(subset=['titulo', 'responsavel', 'data_criacao'])
 ```
 
 ---
@@ -241,17 +212,14 @@ O dataset foi desenhado para casar diretamente com os requisitos do **Projeto Fi
 | Atributos: datas (criação, atualização, conclusão) | `data_criacao`, `data_conclusao` + `status_historico.csv` (linha do tempo de atualizações) |
 | Atributos: status | Coluna `status` (enum) |
 | "Base personalizada visando adaptar ao contexto" | Tema alinhado ao propósito do programa Inova.PCD |
-| "Base pode ser populada ainda mais pelos colaboradores" | Schema documentado, reproduzível, fácil de estender |
+| "Base pode ser populada ainda mais pelos colaboradores" | Schema documentado, fácil de estender |
 
 ### Atende às análises sugeridas para a Semana 3
-
-O documento oficial cita três análises mínimas. Todas têm exemplo pronto no README:
 
 | Análise sugerida no documento | Onde está no dataset |
 |---|---|
 | "Média de tarefas concluídas" | `(df['status'] == 'concluida').mean()` aplicado a `atividades.csv` |
-| "Limpeza de dados duplicados" | `atividades_sujo.csv` traz 5 duplicatas propositais (e mais 30 outros tipos de erro) |
-| "Visualização básica" | 12 análises sugeridas no README + estrutura compatível com Chart.js e Matplotlib |
+| "Visualização básica" | 10 análises sugeridas no README + estrutura compatível com Chart.js e Matplotlib |
 
 ### Alinhamento com o Trello do projeto
 
@@ -259,11 +227,11 @@ O dataset apoia diretamente vários cards do Trello do projeto (tanto na versão
 
 | Card do Trello | Como o dataset apoia |
 |---|---|
-| `Modelar Banco de Dados (Users e Tasks)` | Schema das colunas valida a model `Task` escolhida — o `seed.js` importa o CSV sem erro se a modelagem estiver correta |
+| `Modelar Banco de Dados (Users e Tasks)` | Schema das colunas valida a model `Task` escolhida — o seed importa o CSV sem erro se a modelagem estiver correta |
 | `Implementar CRUD de Tarefas` | 65 tarefas reais como volume de teste para o CRUD |
 | `Implementar Script de Análise de Dados em Python` | Entrada direta do script — sem precisar criar dados de teste |
 | `Gerar Primeiras Métricas de Produtividade` | Métricas naturais: taxa de conclusão, lead time, sobrecarga por responsável |
-| `Criar Visualizações de Dados da Plataforma` | 12 análises sugeridas no README cobrem distribuições, agregações e séries temporais |
+| `Criar Visualizações de Dados da Plataforma` | 10 análises sugeridas no README cobrem distribuições, agregações e séries temporais |
 | `Testar API Completa no Postman/Insomnia` | Dataset populado ajuda nos testes de `GET /tasks` (lista não-vazia, filtros) |
 
 > 💡 **Importante**: o Trello organiza o backlog **da squad** (tarefas de desenvolvimento). O dataset entrega os **dados de domínio** que vão ser geridos pela aplicação. São camadas diferentes — e por isso se complementam sem sobreposição.
@@ -275,7 +243,6 @@ O dataset apoia diretamente vários cards do Trello do projeto (tanto na versão
 - **Dataset sintético plausível**: tarefas fictícias baseadas em práticas reais de iniciativas de inclusão em empresas brasileiras de tecnologia. Não representam empresa específica.
 - **Período curto** (~6 meses): suficiente para análise descritiva, limitado para tendências de longo prazo.
 - **Nomes de responsáveis são fictícios**: não são pessoas reais.
-- **Sem ruído na versão limpa**: `atividades.csv` está 100% consistente. Use `atividades_sujo.csv` para exercícios de qualidade de dados.
 
 ---
 
