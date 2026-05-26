@@ -226,6 +226,50 @@ sujo = sujo.drop_duplicates(subset=['titulo', 'responsavel', 'data_criacao'])
 
 ---
 
+## ✅ Aderência ao escopo oficial
+
+O dataset foi desenhado para casar diretamente com os requisitos do **Projeto Final da Formação Full Stack — Inova.PCD**.
+
+### Atende ao documento oficial do projeto
+
+| Requisito do documento | Como o dataset atende |
+|---|---|
+| Cenário de "tarefas" (um dos 3 sugeridos) | Tarefas reais de iniciativa de inclusão PCD |
+| Atributos: identificação do item | Coluna `id` |
+| Atributos: categoria/tipo | Coluna `categoria` (7 eixos) |
+| Atributos: valores numéricos | `estimativa_horas`, `horas_gastas` |
+| Atributos: datas (criação, atualização, conclusão) | `data_criacao`, `data_conclusao` + `status_historico.csv` (linha do tempo de atualizações) |
+| Atributos: status | Coluna `status` (enum) |
+| "Base personalizada visando adaptar ao contexto" | Tema alinhado ao propósito do programa Inova.PCD |
+| "Base pode ser populada ainda mais pelos colaboradores" | Schema documentado, reproduzível, fácil de estender |
+
+### Atende às análises sugeridas para a Semana 3
+
+O documento oficial cita três análises mínimas. Todas têm exemplo pronto no README:
+
+| Análise sugerida no documento | Onde está no dataset |
+|---|---|
+| "Média de tarefas concluídas" | `(df['status'] == 'concluida').mean()` aplicado a `atividades.csv` |
+| "Limpeza de dados duplicados" | `atividades_sujo.csv` traz 5 duplicatas propositais (e mais 30 outros tipos de erro) |
+| "Visualização básica" | 12 análises sugeridas no README + estrutura compatível com Chart.js e Matplotlib |
+
+### Alinhamento com o Trello do projeto
+
+O dataset apoia diretamente vários cards do Trello do projeto (tanto na versão **sequencial** quanto na **em paralelo**):
+
+| Card do Trello | Como o dataset apoia |
+|---|---|
+| `Modelar Banco de Dados (Users e Tasks)` | Schema das colunas valida a model `Task` escolhida — o `seed.js` importa o CSV sem erro se a modelagem estiver correta |
+| `Implementar CRUD de Tarefas` | 65 tarefas reais como volume de teste para o CRUD |
+| `Implementar Script de Análise de Dados em Python` | Entrada direta do script — sem precisar criar dados de teste |
+| `Gerar Primeiras Métricas de Produtividade` | Métricas naturais: taxa de conclusão, lead time, sobrecarga por responsável |
+| `Criar Visualizações de Dados da Plataforma` | 12 análises sugeridas no README cobrem distribuições, agregações e séries temporais |
+| `Testar API Completa no Postman/Insomnia` | Dataset populado ajuda nos testes de `GET /tasks` (lista não-vazia, filtros) |
+
+> 💡 **Importante**: o Trello organiza o backlog **da squad** (tarefas de desenvolvimento). O dataset entrega os **dados de domínio** que vão ser geridos pela aplicação. São camadas diferentes — e por isso se complementam sem sobreposição.
+
+---
+
 ## ⚠️ Limitações e premissas
 
 - **Dataset sintético plausível**: tarefas fictícias baseadas em práticas reais de iniciativas de inclusão em empresas brasileiras de tecnologia. Não representam empresa específica.
