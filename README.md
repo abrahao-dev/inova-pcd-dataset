@@ -162,19 +162,25 @@ Material extra pra destravar a importação no MongoDB e dar o ponto de partida 
 
 ### 1. Importar o dataset no MongoDB
 
+> ⚠️ **Antes de copiar qualquer comando**: tudo abaixo são **exemplos** baseados em UM jeito possível de modelar o sistema. Cada squad pode (e deve) tomar suas próprias decisões — nomes de banco, nomes de campos, estrutura de pastas, parser usado. O importante é **entender a transformação CSV → objeto Mongoose**, não copiar nomes literais.
+>
+> Se a squad de vocês já importou o dataset de outro jeito (mongoimport puro, parser próprio, com `papaparse`, com `csv-parse`...), **siga o jeito de vocês**. E melhor ainda: compartilhem no grupo, ajuda os colegas.
+
 **Opção A — `mongoimport` (rápido, sem mapear schema)**
 
 ```bash
-mongoimport --db taskinsight --collection tasks \
+mongoimport --db <nome-do-seu-banco> --collection tasks \
             --type csv --headerline \
             --file data/atividades.csv
 ```
+
+> 💡 Troquem `<nome-do-seu-banco>` pelo nome real do banco de vocês (ex: o nome da squad, o nome do projeto, etc.). `taskinsight` era só um exemplo do meu setup local.
 
 Útil para inspecionar os dados rapidamente no MongoDB Compass. Cria a collection `tasks` com os nomes das colunas do CSV (`titulo`, `descricao`, `categoria`...) — **sem mapear para o schema da Mongoose**.
 
 **Opção B — Script Node + Mongoose (mapeia para o schema da `Task`)**
 
-Esta é a forma recomendada porque alinha os dados ao schema que vocês vão definir na model. Crie `backend/scripts/seed.js`:
+Esta é uma forma de alinhar os dados ao schema que vocês vão definir na model. Crie `backend/scripts/seed.js`:
 
 ```js
 require('dotenv').config();
@@ -259,9 +265,9 @@ Rodar:
 node backend/scripts/seed.js
 ```
 
-**Mapeamento dos campos** (CSV do dataset ↔ schema da `Task`):
+**Mapeamento dos campos** (apenas **exemplo** — o do meu schema):
 
-| CSV (dataset) | Task (Mongoose) |
+| CSV (dataset) | Task (Mongoose) — exemplo |
 |---|---|
 | `titulo` | `title` |
 | `descricao` | `desc` |
@@ -269,6 +275,10 @@ node backend/scripts/seed.js
 | `prioridade` | `prio` |
 | `categoria` | `story` |
 | `data_criacao` | `created` |
+
+> ⚠️ **Não copie cegamente**. Se a squad modelou os campos com outros nomes — `descricao` em vez de `desc`, `description` completo em inglês, `prioridade` em vez de `prio` — ajuste o mapeamento acima de acordo. O objetivo da tabela é mostrar que **uma transformação é necessária** entre o CSV e o objeto que vai pro Mongo, não impor os nomes.
+>
+> 💬 **Já importaram de outro jeito?** Mandem no grupo. Aproveita pros colegas verem como vocês resolveram — várias abordagens válidas existem (mongoimport direto, parser próprio, `papaparse`, `csv-parse`, etc.).
 
 ---
 
