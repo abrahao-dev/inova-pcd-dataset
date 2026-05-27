@@ -12,7 +12,7 @@ Este dataset apoia o projeto final em 3 fases (uma por semana):
 
 | Semana | Uso |
 |---|---|
-| **Semana 1** — Back-end | Popular MongoDB via script seed (~65 tarefas prontas) |
+| **Semana 1** — Back-end | Popular MongoDB Atlas via Compass Import (método da **Aula 09 — Nível 8**) — ~65 tarefas prontas |
 | **Semana 2** — Front-end | Alimentar dashboard com dados reais (não lista vazia) |
 | **Semana 3** — Python | Entrada para análise, métricas e visualizações |
 
@@ -136,17 +136,15 @@ const texto = await resp.text();
 // recomenda-se PapaParse para parsing robusto
 ```
 
-### Importar no MongoDB
+### Importar no MongoDB Atlas (via Compass)
 
-Via `mongoimport`:
+Mesmo fluxo que vocês aprenderam na **Aula 09 — Nível 8 (MongoDB Atlas)**:
 
-```bash
-mongoimport --db taskinsight --collection atividades \
-            --type csv --headerline \
-            --file data/atividades.csv
-```
-
-Ou via script seed Node.js (que mapeia as colunas do CSV para o schema `Task`).
+1. Conecte o Compass ao seu cluster Atlas usando a connection string
+2. Selecione (ou crie) o banco e a collection `tasks`
+3. Clique em **ADD DATA → Import File**
+4. Escolha `data/atividades.csv`, marque tipo **CSV** com header
+5. Confirme o import — a collection é criada com as colunas do CSV (`titulo`, `descricao`, `categoria`, ...)
 
 ### Abrir em Excel / Numbers / Google Sheets
 
@@ -158,114 +156,38 @@ Ou via script seed Node.js (que mapeia as colunas do CSV para o schema `Task`).
 
 ## 🔧 Setup do back-end (cola pra Sprint 1)
 
-Material extra pra destravar a importação no MongoDB e dar o ponto de partida da arquitetura.
-
-### 1. Importar o dataset no MongoDB
-
-> ⚠️ **Antes de copiar qualquer comando**: tudo abaixo são **exemplos** baseados em UM jeito possível de modelar o sistema. Cada squad pode (e deve) tomar suas próprias decisões — nomes de banco, nomes de campos, estrutura de pastas, parser usado. O importante é **entender a transformação CSV → objeto Mongoose**, não copiar nomes literais.
+> 📚 **Vocês já estudaram tudo isso no curso.** Esta seção só amarra o dataset ao que vocês fizeram nas aulas:
 >
-> Se a squad de vocês já importou o dataset de outro jeito (mongoimport puro, parser próprio, com `papaparse`, com `csv-parse`...), **siga o jeito de vocês**. E melhor ainda: compartilhem no grupo, ajuda os colegas.
+> - **Aula 09 — Nível 8 (MongoDB Atlas)** → criar cluster, connection string, importar dados via Compass
+> - **Aula 07 — Nível 8 (Mongoose)** → conectar Node ao Atlas
+> - **Aula 12 — Nível 8 (CRUD de Filmes)** → template direto pro CRUD de Tasks
+> - **Aula 03 — Nível 8 (JWT)** → autenticação
+> - **Aula 04 — Nível 8 (Variáveis de ambiente)** → `.env` com `MONGO_URI` e `JWT_SECRET`
 
-**Opção A — `mongoimport` (rápido, sem mapear schema)**
+### 1. Importar o dataset no MongoDB Atlas
 
-```bash
-mongoimport --db <nome-do-seu-banco> --collection tasks \
-            --type csv --headerline \
-            --file data/atividades.csv
-```
+Mesmo passo a passo da **Aula 09 — Nível 8**:
 
-> 💡 Troquem `<nome-do-seu-banco>` pelo nome real do banco de vocês (ex: o nome da squad, o nome do projeto, etc.). `taskinsight` era só um exemplo do meu setup local.
+1. **Criar cluster** no [MongoDB Atlas](https://www.mongodb.com/atlas) (free tier M0)
+2. **Database Access** → criar usuário com senha (anota a senha)
+3. **Network Access** → liberar IP (em sala: `0.0.0.0/0` pra todo mundo conseguir conectar)
+4. **Connect → Compass** → copia a connection string (`mongodb+srv://...`)
+5. Abre o **MongoDB Compass**, cola a string, conecta
+6. Cria o banco (ex: nome da squad) e a collection `tasks`
+7. Na collection → **ADD DATA → Import File**
+8. Seleciona `data/atividades.csv`, marca **CSV** com **First row is header**, confirma
 
-Útil para inspecionar os dados rapidamente no MongoDB Compass. Cria a collection `tasks` com os nomes das colunas do CSV (`titulo`, `descricao`, `categoria`...) — **sem mapear para o schema da Mongoose**.
+Pronto — 65 documentos importados, mesmo fluxo da aula.
 
-**Opção B — Script Node + Mongoose (mapeia para o schema da `Task`)**
+> 💡 A connection string vai no `.env` do back-end como `MONGO_URI` (igual ao que vocês fizeram na **Aula 04** com `.env` e na **Aula 07** ao conectar via Mongoose).
 
-Esta é uma forma de alinhar os dados ao schema que vocês vão definir na model. Crie `backend/scripts/seed.js`:
+> ⚠️ **Squad decide os nomes.** Nome do banco, nome dos campos no schema da Task — escolhas da squad. Os nomes neste README são só exemplos do meu setup; sigam a convenção de vocês.
 
-```js
-require('dotenv').config();
-const fs = require('fs');
-const path = require('path');
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const Task = require('../models/Task');
-const User = require('../models/User');
+---
 
-// Parser CSV que respeita aspas (campos com vírgula embutida)
-function parseLinha(linha) {
-    const campos = [];
-    let atual = '';
-    let dentroAspas = false;
-    for (let i = 0; i < linha.length; i++) {
-        const c = linha[i];
-        if (c === '"' && linha[i + 1] === '"' && dentroAspas) {
-            atual += '"';
-            i++;
-        } else if (c === '"') {
-            dentroAspas = !dentroAspas;
-        } else if (c === ',' && !dentroAspas) {
-            campos.push(atual);
-            atual = '';
-        } else {
-            atual += c;
-        }
-    }
-    campos.push(atual);
-    return campos;
-}
+### 2. Mapeamento CSV → schema Mongoose
 
-async function seed() {
-    await mongoose.connect(process.env.MONGO_URI);
-
-    // 1. Garante um usuário "dono" das tarefas
-    let demo = await User.findOne({ email: 'demo@inovapcd.telos' });
-    if (!demo) {
-        const hash = await bcrypt.hash('demo123', 10);
-        demo = await User.create({
-            name: 'Demo Inova.PCD',
-            email: 'demo@inovapcd.telos',
-            password: hash,
-        });
-    }
-
-    // 2. Lê CSV
-    const csvPath = path.join(__dirname, '../../data/atividades.csv');
-    const linhas = fs.readFileSync(csvPath, 'utf-8').trim().split('\n');
-    const cabecalho = parseLinha(linhas[0]);
-
-    // 3. Limpa tarefas anteriores deste usuário (idempotente — pode rodar várias vezes)
-    await Task.deleteMany({ user: demo._id });
-
-    // 4. Mapeia colunas do CSV para campos da Task
-    const tasks = linhas.slice(1).map(linha => {
-        const valores = parseLinha(linha);
-        const obj = Object.fromEntries(cabecalho.map((c, i) => [c, valores[i]]));
-        return {
-            user: demo._id,
-            title: obj.titulo,          // CSV: titulo      → Task: title
-            desc: obj.descricao,        // CSV: descricao   → Task: desc
-            status: obj.status,         // mesmo nome
-            prio: obj.prioridade,       // CSV: prioridade  → Task: prio
-            story: obj.categoria,       // CSV: categoria   → Task: story
-            created: new Date(obj.data_criacao),
-        };
-    });
-
-    await Task.insertMany(tasks);
-    console.log(`✅ ${tasks.length} tarefas inseridas`);
-    process.exit(0);
-}
-
-seed().catch(err => { console.error(err); process.exit(1); });
-```
-
-Rodar:
-
-```bash
-node backend/scripts/seed.js
-```
-
-**Mapeamento dos campos** (apenas **exemplo** — o do meu schema):
+O CSV vem em português. Quando vocês modelarem o schema da `Task` (igual fizeram com o de Filmes na **Aula 12 N8**), façam a tradução:
 
 | CSV (dataset) | Task (Mongoose) — exemplo |
 |---|---|
@@ -276,15 +198,15 @@ node backend/scripts/seed.js
 | `categoria` | `story` |
 | `data_criacao` | `created` |
 
-> ⚠️ **Não copie cegamente**. Se a squad modelou os campos com outros nomes — `descricao` em vez de `desc`, `description` completo em inglês, `prioridade` em vez de `prio` — ajuste o mapeamento acima de acordo. O objetivo da tabela é mostrar que **uma transformação é necessária** entre o CSV e o objeto que vai pro Mongo, não impor os nomes.
->
-> 💬 **Já importaram de outro jeito?** Mandem no grupo. Aproveita pros colegas verem como vocês resolveram — várias abordagens válidas existem (mongoimport direto, parser próprio, `papaparse`, `csv-parse`, etc.).
+> ⚠️ **Exemplo, não receita.** Se a squad preferir `descricao` em vez de `desc`, ou `prioridade` em vez de `prio`, **sigam o jeito de vocês** — só lembrem de adaptar o `controller` que lê o CSV importado.
+
+> 💡 **Dica prática:** se quiserem economizar trabalho, **deixem o schema em português** (`titulo`, `descricao`, `prioridade`, ...). Aí os documentos importados via Compass batem direto com o schema sem precisar de transformação.
 
 ---
 
-### 2. Estrutura de pastas recomendada (back-end)
+### 3. Estrutura de pastas recomendada (back-end)
 
-Convenção comum em projetos Node + Express + Mongoose. Cada arquivo tem **uma responsabilidade clara**:
+Mesma convenção que vocês usaram no **CRUD de Filmes (Aula 12 N8)** — só trocando "Filme" por "Task":
 
 ```
 backend/
@@ -298,15 +220,13 @@ backend/
 │   ├── authRoutes.js          # POST /register, POST /login (públicas)
 │   └── taskRoutes.js          # GET, POST, PUT, DELETE /tasks (protegidas por JWT)
 ├── controllers/
-│   ├── authController.js      # Lógica de register e login (bcrypt + JWT)
-│   └── taskController.js      # Lógica do CRUD de tarefas
-├── middlewares/
-│   └── auth.js                # Valida o JWT do header e anexa req.user
-└── scripts/
-    └── seed.js                # Popula o banco com o dataset (snippet acima)
+│   ├── authController.js      # Lógica de register e login (bcrypt + JWT) — Aula 02/03 N8
+│   └── taskController.js      # Lógica do CRUD de tarefas — Aula 12 N8 (CRUD Filmes)
+└── middlewares/
+    └── auth.js                # Valida o JWT do header e anexa req.user
 ```
 
-**Princípio**:
+**Princípio** (igual à **Aula 14 N7 — Organizando aplicação**):
 - `routes/` só **define URLs** e aponta para o controller (zero lógica de negócio)
 - `controllers/` tem a **lógica de negócio** (regras, validações, chamadas ao banco)
 - `models/` define a **forma dos dados** (schema Mongoose)
@@ -315,7 +235,7 @@ backend/
 
 ---
 
-### 3. Fluxo JWT em uma frase
+### 4. Fluxo JWT em uma frase
 
 > **Usuário loga → backend valida senha → gera token → cliente guarda → manda token em toda request → middleware decodifica ANTES de chegar no controller.**
 
@@ -417,7 +337,7 @@ O dataset apoia diretamente vários cards do Trello do projeto (tanto na versão
 
 | Card do Trello | Como o dataset apoia |
 |---|---|
-| `Modelar Banco de Dados (Users e Tasks)` | Schema das colunas valida a model `Task` escolhida — o seed importa o CSV sem erro se a modelagem estiver correta |
+| `Modelar Banco de Dados (Users e Tasks)` | Schema das colunas valida a model `Task` escolhida — o import via Compass (Aula 09 N8) carrega o CSV direto na collection |
 | `Implementar CRUD de Tarefas` | 65 tarefas reais como volume de teste para o CRUD |
 | `Implementar Script de Análise de Dados em Python` | Entrada direta do script — sem precisar criar dados de teste |
 | `Gerar Primeiras Métricas de Produtividade` | Métricas naturais: taxa de conclusão, lead time, sobrecarga por responsável |
