@@ -4,6 +4,8 @@ Dataset oficial do **Projeto Final da Formação Full Stack** do programa **Inov
 
 Conjunto de dados curado para simular uma **iniciativa corporativa real de inclusão de pessoas com deficiência (PCD)** em uma empresa de tecnologia. Pensado para popular um sistema de gestão de atividades, alimentar dashboards e servir de entrada para análises em Python.
 
+> 📚 **Tudo neste README amarra ao que vocês já viram no curso.** Especificamente nos **Níveis 7 e 8** (Node + Express + Mongoose + MongoDB Atlas) e no **Nível 5** (Pandas pra análise). Se travar, voltem nas aulas — não é matéria nova.
+
 ---
 
 ## 🎯 Para que serve
@@ -12,13 +14,13 @@ Este dataset apoia o projeto final em 3 fases (uma por semana):
 
 | Semana | Uso |
 |---|---|
-| **Semana 1** — Back-end | Popular MongoDB Atlas via Compass Import (método da **Aula 09 — Nível 8**) — ~65 tarefas prontas |
+| **Semana 1** — Back-end | Popular MongoDB Atlas via **Compass Import** (mesmo fluxo da **Aula 09 · Nível 8**) — 65 tarefas prontas |
 | **Semana 2** — Front-end | Alimentar dashboard com dados reais (não lista vazia) |
 | **Semana 3** — Python | Entrada para análise, métricas e visualizações |
 
 O schema foi desenhado para **bater diretamente** com a model `Task` esperada no back-end (Node.js + Mongoose):
 
-| Coluna do CSV | Campo da Task |
+| Coluna do CSV | Campo da Task (exemplo) |
 |---|---|
 | `titulo` | `title` |
 | `descricao` | `desc` |
@@ -28,6 +30,8 @@ O schema foi desenhado para **bater diretamente** com a model `Task` esperada no
 | `data_criacao` | `created` |
 
 > Campos extras (`responsavel`, `publico_alvo`, `estimativa_horas`, `horas_gastas`, `data_conclusao`) **não exigem mudança no schema** — servem para análise.
+
+> 💡 **Atalho recomendado:** deixem o schema da Task com os nomes em **português** (`titulo`, `descricao`, `prioridade`, ...). Assim os documentos importados via Compass batem direto com o schema, sem precisar renomear campo nenhum. Só mantenham o mesmo padrão no front e na API.
 
 ---
 
@@ -105,7 +109,26 @@ Log de cada transição de status (`pendente → andamento → concluida`) com t
 
 ## 🚀 Como usar
 
-### Carregar em Python (local)
+### Importar no MongoDB Atlas (via Compass) — método da Aula 09 · Nível 8
+
+> ⚠️ **Único método ensinado no curso.** Sem `mongoimport` CLI, sem script Node/Mongoose extra. É o mesmo passo a passo da **Aula 09 — Nível 8 (MongoDB Atlas)**.
+
+1. **Criar cluster** no [MongoDB Atlas](https://www.mongodb.com/atlas) (free tier M0 — basta e-mail)
+2. **Database Access** → criar usuário com senha (anota a senha)
+3. **Network Access** → liberar IP (em sala: `0.0.0.0/0` pra todo mundo conseguir conectar)
+4. **Connect → Compass** → copia a connection string (`mongodb+srv://...`)
+5. Abre o **MongoDB Compass**, cola a string, conecta
+6. Cria o banco (ex: nome da squad) e a collection `tasks`
+7. Na collection → **ADD DATA → Import JSON or CSV file**
+8. Seleciona `data/atividades.csv`, marca **CSV** com **First row is header**, confirma
+
+Pronto — 65 documentos importados, mesmo fluxo da aula.
+
+> 💡 A mesma connection string vai no `.env` do back-end como `MONGO_URI` (igual ao que vocês fizeram na **Aula 04 — Nível 8** com `.env` e na **Aula 07 — Nível 8** ao conectar via Mongoose).
+
+> ⚠️ **Squad decide os nomes.** Nome do banco, nome dos campos no schema da Task — escolhas da squad. Os nomes neste README são só exemplos.
+
+### Carregar em Python (Sprint 3)
 
 ```python
 import pandas as pd
@@ -117,7 +140,7 @@ print(ativ.head())
 print(ativ['status'].value_counts())
 ```
 
-### Carregar no navegador (Pyodide)
+### Carregar no navegador (Pyodide — opcional)
 
 ```python
 import pandas as pd
@@ -128,23 +151,13 @@ resp = await pyfetch('/data/atividades.csv')
 df = pd.read_csv(io.StringIO(await resp.string()))
 ```
 
-### Carregar no JavaScript (front-end)
+### Carregar no JavaScript (front-end — opcional)
 
 ```js
 const resp = await fetch('/data/atividades.csv');
 const texto = await resp.text();
-// recomenda-se PapaParse para parsing robusto
+// Parser CSV: PapaParse ou split simples respeitando aspas
 ```
-
-### Importar no MongoDB Atlas (via Compass)
-
-Mesmo fluxo que vocês aprenderam na **Aula 09 — Nível 8 (MongoDB Atlas)**:
-
-1. Conecte o Compass ao seu cluster Atlas usando a connection string
-2. Selecione (ou crie) o banco e a collection `tasks`
-3. Clique em **ADD DATA → Import File**
-4. Escolha `data/atividades.csv`, marque tipo **CSV** com header
-5. Confirme o import — a collection é criada com as colunas do CSV (`titulo`, `descricao`, `categoria`, ...)
 
 ### Abrir em Excel / Numbers / Google Sheets
 
@@ -158,53 +171,33 @@ Mesmo fluxo que vocês aprenderam na **Aula 09 — Nível 8 (MongoDB Atlas)**:
 
 > 📚 **Vocês já estudaram tudo isso no curso.** Esta seção só amarra o dataset ao que vocês fizeram nas aulas:
 >
-> - **Aula 09 — Nível 8 (MongoDB Atlas)** → criar cluster, connection string, importar dados via Compass
-> - **Aula 07 — Nível 8 (Mongoose)** → conectar Node ao Atlas
-> - **Aula 12 — Nível 8 (CRUD de Filmes)** → template direto pro CRUD de Tasks
-> - **Aula 03 — Nível 8 (JWT)** → autenticação
-> - **Aula 04 — Nível 8 (Variáveis de ambiente)** → `.env` com `MONGO_URI` e `JWT_SECRET`
+> | Aula | Pra que serve aqui |
+> |---|---|
+> | **Nível 7 · Aulas 12–14** | Estruturando uma API: rotas, CRUD de usuários, organização da aplicação |
+> | **Nível 8 · Aulas 02, 03** | Login + JWT |
+> | **Nível 8 · Aula 04** | Variáveis de ambiente (`.env`) |
+> | **Nível 8 · Aulas 07, 10, 11** | Mongoose: conexão, CRUD, hooks |
+> | **Nível 8 · Aula 09** | MongoDB Atlas (cluster + Compass) |
+> | **Nível 8 · Aula 12** | CRUD de Filmes — o gabarito mais próximo: troquem **Filme → Task** |
 
-### 1. Importar o dataset no MongoDB Atlas
+### 1. Mapeamento CSV → schema Mongoose
 
-Mesmo passo a passo da **Aula 09 — Nível 8**:
+O CSV vem em português. Quando vocês modelarem o schema da `Task` (igual fizeram com o de Filmes na **Aula 12 N8**), o caminho mais simples é manter os nomes em português pra bater direto com o CSV importado:
 
-1. **Criar cluster** no [MongoDB Atlas](https://www.mongodb.com/atlas) (free tier M0)
-2. **Database Access** → criar usuário com senha (anota a senha)
-3. **Network Access** → liberar IP (em sala: `0.0.0.0/0` pra todo mundo conseguir conectar)
-4. **Connect → Compass** → copia a connection string (`mongodb+srv://...`)
-5. Abre o **MongoDB Compass**, cola a string, conecta
-6. Cria o banco (ex: nome da squad) e a collection `tasks`
-7. Na collection → **ADD DATA → Import File**
-8. Seleciona `data/atividades.csv`, marca **CSV** com **First row is header**, confirma
+```
+titulo       → titulo
+descricao    → descricao
+status       → status
+prioridade   → prioridade
+categoria    → categoria
+data_criacao → data_criacao
+```
 
-Pronto — 65 documentos importados, mesmo fluxo da aula.
+Se a squad preferir nomes em inglês (`title`, `desc`, `prio`, `story`, `created`), também funciona — só lembrem que os documentos importados via Compass virão com os nomes do CSV, então vocês precisarão renomear (pelo Compass campo a campo, ou via `updateMany` no `mongosh`). Discutam em squad qual caminho preferem.
 
-> 💡 A connection string vai no `.env` do back-end como `MONGO_URI` (igual ao que vocês fizeram na **Aula 04** com `.env` e na **Aula 07** ao conectar via Mongoose).
+> 💡 **Atalho recomendado:** schema em português = zero conversão. Só mantenham o mesmo padrão no front e na API.
 
-> ⚠️ **Squad decide os nomes.** Nome do banco, nome dos campos no schema da Task — escolhas da squad. Os nomes neste README são só exemplos do meu setup; sigam a convenção de vocês.
-
----
-
-### 2. Mapeamento CSV → schema Mongoose
-
-O CSV vem em português. Quando vocês modelarem o schema da `Task` (igual fizeram com o de Filmes na **Aula 12 N8**), façam a tradução:
-
-| CSV (dataset) | Task (Mongoose) — exemplo |
-|---|---|
-| `titulo` | `title` |
-| `descricao` | `desc` |
-| `status` | `status` |
-| `prioridade` | `prio` |
-| `categoria` | `story` |
-| `data_criacao` | `created` |
-
-> ⚠️ **Exemplo, não receita.** Se a squad preferir `descricao` em vez de `desc`, ou `prioridade` em vez de `prio`, **sigam o jeito de vocês** — só lembrem de adaptar o `controller` que lê o CSV importado.
-
-> 💡 **Dica prática:** se quiserem economizar trabalho, **deixem o schema em português** (`titulo`, `descricao`, `prioridade`, ...). Aí os documentos importados via Compass batem direto com o schema sem precisar de transformação.
-
----
-
-### 3. Estrutura de pastas recomendada (back-end)
+### 2. Estrutura de pastas recomendada (back-end)
 
 Mesma convenção que vocês usaram no **CRUD de Filmes (Aula 12 N8)** — só trocando "Filme" por "Task":
 
@@ -215,7 +208,7 @@ backend/
 │   └── db.js                  # Função connectDB() — encapsula mongoose.connect()
 ├── models/
 │   ├── User.js                # Schema do usuário (name, email, password)
-│   └── Task.js                # Schema da tarefa (title, desc, status, prio, story, user)
+│   └── Task.js                # Schema da tarefa (titulo, descricao, status, prioridade, categoria, user)
 ├── routes/
 │   ├── authRoutes.js          # POST /register, POST /login (públicas)
 │   └── taskRoutes.js          # GET, POST, PUT, DELETE /tasks (protegidas por JWT)
@@ -233,7 +226,15 @@ backend/
 - `middlewares/` faz **validação ANTES da rota** (ex: checar JWT)
 - `config/` isola **configurações** (conexão DB, variáveis de ambiente)
 
----
+### 3. `.env` mínimo (Aula 04 · Nível 8)
+
+```env
+MONGO_URI=mongodb+srv://<usuario>:<senha>@<cluster>.mongodb.net/<nome-do-banco>?retryWrites=true&w=majority
+JWT_SECRET=troque-isso-por-uma-string-longa-e-aleatoria
+PORT=3000
+```
+
+> ⚠️ Nunca commite o `.env`. Adicione `.env` no `.gitignore`.
 
 ### 4. Fluxo JWT em uma frase
 
@@ -266,7 +267,7 @@ Diagrama mental:
 
 ---
 
-## 🎯 10 análises sugeridas
+## 🎯 10 análises sugeridas (Sprint 3 — Nível 5)
 
 ### Estatística descritiva (fácil)
 1. Distribuição por status
@@ -299,9 +300,9 @@ ativ = pd.read_csv('data/atividades.csv')
 resp = pd.read_csv('data/responsaveis.csv')
 df = ativ.merge(resp, left_on='responsavel', right_on='nome')
 c = df[df['status'] == 'concluida'].copy()
-c['data_criacao'] = pd.to_datetime(c['data_criacao'])
+c['data_criacao']   = pd.to_datetime(c['data_criacao'])
 c['data_conclusao'] = pd.to_datetime(c['data_conclusao'])
-c['lead_time'] = (c['data_conclusao'] - c['data_criacao']).dt.days
+c['lead_time']      = (c['data_conclusao'] - c['data_criacao']).dt.days
 c.groupby('formacao_acessibilidade')['lead_time'].mean()
 ```
 
